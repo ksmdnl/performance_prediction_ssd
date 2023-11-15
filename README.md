@@ -1,5 +1,6 @@
-# performance_prediction_ss## Citation
+# performance_prediction_ssd
 
+## Citation
 If you find our code helpful or interesting for your research, please consider citing
 ```
 @InProceedings{Baer2022,
