@@ -1,1 +1,1 @@
-from models.ODRec.fw_adaptor import ODReconstruction, load_state_dict_into_model
+from models.detector.ODRec.fw_adaptor import ODReconstruction, load_state_dict_into_model

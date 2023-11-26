@@ -5,8 +5,8 @@ import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 from torch.hub import load_state_dict_from_url
 
-from ...util import _Upsample, SpatialPyramidPooling, Bottleneck, BasicBlock, L2Norm
-#from ...ssd.detector_head import build_ssd_head
+from ....util import _Upsample, Bottleneck, BasicBlock, L2Norm
+from ...ssd.detector_head_og import build_ssd_head
 
 __all__ = ['ResNet', 'resnet18', 'resnet18_sws', 'resnet50_sws']
 
@@ -18,9 +18,7 @@ model_urls = {
 
 SUPPORTED_AE_DECODER = ['resnet10', 'resnet18', 'resnet34', 'espcn', 'basic', 'basic_noskip']
 
-# Definition of the Class "ResNet": base for the "SwiftNet"
 class ResNet(nn.Module):
-    # model = ResNet(AE_Decoder, freeze_resnet, BasicBlock, [2, 2, 2, 2], decoders_skip_connections, **kwargs)
     def __init__(self, AE_Decoder,
                  freeze_resnet,
                  block,
@@ -38,19 +36,15 @@ class ResNet(nn.Module):
         self.efficient = efficient
         self.AE_Decoder_Name = AE_Decoder
         self.freeze_ssd = freeze_resnet
-        self.use_bn = use_bn  # use Batch Normalization
+        self.use_bn = use_bn
         self.modified_stride = modified_stride
         self.ssd_model = ssd_model
         self.num_classes = num_classes
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        # self Definition of a conv1 from a standard Conv2d
         self.bn1 = nn.BatchNorm2d(64) if self.use_bn else lambda x: x
         self.act1 = nn.ReLU(inplace=True)
-        # self definition of BN from standard BatchNorm2D if use.bn true
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)  # definition of the MaxPool2d function
 
-        # Definition of the Blocks 1 to 4 (here called Layer)
-        # Each Block (here Layer) contains in ResNet-18 two BasicBlocks (= ResUnits)
         upsamples = []  # create an array for the different upsampling layers
         self.layer1 = self._make_layer(block, 64, layers[0])
         upsamples += [_Upsample(num_features, self.inplanes, num_features, use_bn=self.use_bn, k=k_up)]
@@ -62,47 +56,20 @@ class ResNet(nn.Module):
         
 
         self.decoders_skip_connections = decoders_skip_connections  # Dictionary of 'arguments' to connect decoders: NOT THE CONNECTION ARRAYS itselves
-        # If we do not use the option of freezing an already trained semantic segmentation,
-        # we not longer need a specific structure to follow (to load pretrained weights),
-        # Thus the AE decoder can be placed here directly instead of inside fw_adaptor.py.
         if not self.freeze_ssd:
-            # Get SSD detector head
-            if self.ssd_model == "ssd_mod_sec":
-                from ...ssd.detector_head import build_ssd_head
-                self.detector_head = build_ssd_head(512, self.num_classes, False, False) # num classes for kitti to adjust
-            elif self.ssd_model == "ssd":
-                from ...ssd.detector_head_og import build_ssd_head
-                self.detector_head == build_ssd_head(512, self.num_classes, False, False) # num classes for kitti to adjust
-            elif self.ssd_model == "ssd_mod":
-                ValueError("not supported")
-            elif self.ssd_model == "ssd_mod_bn":
-                from ...ssd.detector_head_bn import build_ssd_head
-                self.detector_head = build_ssd_head(512, self.num_classes, False, False)
+            self.detector_head == build_ssd_head(512, self.num_classes, False, False) # num classes for kitti to adjust
 
-            if self.AE_Decoder_Name == 'resnet10':
-                from .resnet import ResNetDecoder # New ae-decoder-object from class ResNet18Decoder
-                self.ae_decoder = ResNetDecoder(num_Blocks=[1, 1, 1, 1],
-                                        decoders_skip_connections=self.decoders_skip_connections)
-            elif self.AE_Decoder_Name == 'resnet18':
-                from .resnet import ResNetDecoder  # New ae-decoder-object from class ResNet18Decoder
+            if self.AE_Decoder_Name == 'resnet18':
+                from .resnet import ResNetDecoder
                 self.ae_decoder = ResNetDecoder(num_Blocks=[2, 2, 2, 2],
                                         decoders_skip_connections=self.decoders_skip_connections)
-            elif self.AE_Decoder_Name == 'resnet34':
-                from .resnet import ResNetDecoder  # New ae-decoder-object from class ResNet18Decoder
-                self.ae_decoder = ResNetDecoder(num_Blocks=[3, 4, 6, 3],
-                                        decoders_skip_connections=self.decoders_skip_connections)
-            elif self.AE_Decoder_Name == 'espcn':
-                from .espcn import ESPCN  # New ae-decoder-object from class ESPCN in folder AE Decoder ESPCN
-                self.ae_decoder = ESPCN()
             elif self.AE_Decoder_Name == 'basic' or self.AE_Decoder_Name == 'basic_noskip':
-                from .basic import BasicDecoder  # New ae-decoder-object from class Basis_Dec (SwiftNet)
+                from .basic import BasicDecoder
                 self.ae_decoder = BasicDecoder(use_skips=False if 'noskip' in self.AE_Decoder_Name else True)
-            else:  # Basis Decoder
+            else:
                 ValueError(f"The decoder type {self.AE_Decoder_Name} is not supported.")
             
 
-        # Third res block to modify for ssd inference, in order to maintain num of feat. maps
-        # for the detector head
         if self.ssd_model == "ssd_mod_sec":
             self.L2Norm = L2Norm(256,20)
             self.layer3_mod = copy.deepcopy(self.layer3)
@@ -115,22 +82,17 @@ class ResNet(nn.Module):
         if self.use_bn:
             self.fine_tune += [self.bn1]
 
-        # SPP = Spatial Pyramid Pooling Layer initializing
-        num_levels = 3
         self.spp_size = num_features
-        bt_size = self.spp_size
-        level_size = self.spp_size // num_levels
 
         self.upsample = nn.ModuleList(list(reversed(upsamples)))
 
-        if self.freeze_ssd:
-            self.random_init = [self.upsample]
-        else:
-            self.random_init = [self.upsample, self.ae_decoder]  # added ae_decoder
+        self.random_init = [self.upsample]
+            
+        if not self.freeze_ssd:
+            self.random_init += self.ae_decoder
 
         self.num_features = num_features
 
-        # Random initialization of all parameters
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')  # TODO?

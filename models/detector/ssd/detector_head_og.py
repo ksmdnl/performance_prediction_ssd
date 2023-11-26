@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import torch
 import torch.nn as nn
 import os
@@ -110,9 +112,9 @@ def PredictionLayer(extra_layers, bboxes, num_classes, head_bn):
 			
 	return loc_layers, conf_layers
 
-class SSD_Head(nn.Module):
+class SSD(nn.Module):
 	def __init__(self, num_classes, bboxes, ssd_size, pretrain=None, head_bn=True):
-		super(SSD_Head, self).__init__()
+		super(SSD, self).__init__()
 	
 		self.num_classes = num_classes
 		self.bboxes = bboxes
@@ -121,7 +123,7 @@ class SSD_Head(nn.Module):
 		self.extra_list = Extras(self.size)
 		self.pred_layers = PredictionLayer(self.extra_list, self.bboxes, self.num_classes, self.head_bn)
 		self.loc_layers_list, self.conf_layers_list = self.pred_layers
-		self.corpus = nn.Sequential(
+		self.extension = nn.Sequential(
 			nn.MaxPool2d(kernel_size=3, stride=1, padding=1),
 			nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6),
 			nn.ReLU(inplace=True),
@@ -137,10 +139,9 @@ class SSD_Head(nn.Module):
 		
 		loc_pred = []
 		conf_pred = []
-		mylist = []
 		x = source[-1]
 		source = source[:-1]
-		x = self.corpus(x)
+		x = self.extension(x)
 		for i, v in enumerate(self.extras):
 			x = F.relu(v(x), inplace=True)
 			if i % 2 == 1: 							# detection layers
@@ -165,9 +166,13 @@ def build_ssd_head(size=300, num_classes=21, pretrain=False, head_bn=False):
 	if size not in [300,512,275]:
 		print("ERROR: You specified size " + repr(size) + ". However, " +
 			 "currently only SSD300 and SSD512 is supported!")
-	return SSD_Head(num_classes=num_classes,
+	return SSD(num_classes=num_classes,
 			   bboxes=mbboxes[str(size)],
 			   ssd_size=ssd_size,
 			   pretrain=pretrain,
 			   head_bn=head_bn)
+
+if __name__ == "__main__":
+	det_head = build_ssd_head()
+	print(det_head)
 
