@@ -4,10 +4,10 @@
 import torch
 import torch.nn as nn
 from itertools import chain
-from ...util import _UpsampleBlend, _Upsample, upsample, _BNActConv, BasicBlock, Bottleneck
+from ....util import _UpsampleBlend, _Upsample, upsample, _BNActConv, BasicBlock, Bottleneck
 
-MEAN = torch.tensor([[[[0.485, 0.456, 0.406]]]]).permute(0, 3, 1, 2).to(device='cuda')
-STD = torch.tensor([[[[0.229, 0.224, 0.225]]]]).permute(0, 3, 1, 2).to(device='cuda')
+MEAN = torch.tensor([[[[0.485, 0.456, 0.406]]]]).permute(0, 3, 1, 2).to(device='cpu')
+STD = torch.tensor([[[[0.229, 0.224, 0.225]]]]).permute(0, 3, 1, 2).to(device='cpu')
 
 # Class Basic-Decoder for Image Upsampling
 class BasicDecoder(nn.Module):

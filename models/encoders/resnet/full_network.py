@@ -14,8 +14,20 @@ model_urls = {
 }
 
 class ResNet(nn.Module):
-    def __init__(self, block, layers, *, num_features=128, k_up=3, efficient=True, use_bn=True, spp_grids=(8, 4, 2, 1),
-                 spp_square_grid=False, strides=[1, 2, 2, 2], dilations=[1, 1, 1, 1], atrous=False, kaiming=True):
+    def __init__(self, block,
+        layers,
+        *,
+        num_features=128,
+        k_up=3,
+        efficient=True,
+        use_bn=True,
+        spp_grids=(8, 4, 2, 1),
+        spp_square_grid=False,
+        strides=[1, 2, 2, 2],
+        dilations=[1, 1, 1, 1],
+        atrous=False,
+        kaiming=True,
+    ):
         super(ResNet, self).__init__()
         self.dims = []
         self.inplanes = 64
