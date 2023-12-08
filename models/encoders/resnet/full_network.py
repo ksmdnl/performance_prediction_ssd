@@ -176,17 +176,11 @@ class ResNet(nn.Module):
         features += [skip]
         x, skip = self.forward_resblock(x, self.layer2)
         features += [skip]
-        if self.task == "detection":
-            source.append(skip) # torch.Size([1, 128, 64, 64])
         x, skip = self.forward_resblock(x, self.layer3)
         features += [skip]
-        if self.task == "detection":
-            source.append(skip) # torch.Size([1, 256, 32, 32])
         x, skip = self.forward_resblock(x, self.layer4)
-        if self.task == "detection":
-            source.append(skip) # torch.Size([1, 512, 16, 16])
         features += [self.spp.forward(skip)]
-        return features, source
+        return features
 
     def forward_down_only(self, image):
         x = self.conv1(image)
@@ -199,18 +193,12 @@ class ResNet(nn.Module):
         x, skip = self.forward_resblock(x, self.layer1)
         features += [x]
         x, skip = self.forward_resblock(x, self.layer2)
-        if self.task == "detection":
-            source.append(skip) # torch.Size([1, 128, 64, 64])
         features += [x]
         x, skip = self.forward_resblock(x, self.layer3)
-        if self.task == "detection":
-            source.append(skip) # torch.Size([1, 256, 32, 32])
         features += [x]
         x, skip = self.forward_resblock(x, self.layer4)
-        if self.task == "detection":
-            source.append(skip) # torch.Size([1, 512, 16, 16])
         features += [x]
-        return features, x, source
+        return features, x
 
     def forward_up(self, features):
         features = features[::-1]
@@ -223,9 +211,7 @@ class ResNet(nn.Module):
         return x, {'features': features, 'upsamples': upsamples}
 
     def forward(self, image):
-        features, source = self.forward_down(image)
-        seg_out, features = self.forward_up(features)
-        return seg_out, features, source
+        return self.forward_up(self.forward_down(image))
 
 
 def resnet18(pretrained=True, **kwargs):
