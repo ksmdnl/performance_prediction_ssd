@@ -19,6 +19,7 @@ class ResNet(nn.Module):
         *,
         num_features=128,
         k_up=3,
+        task="segmentation",
         efficient=True,
         use_bn=True,
         spp_grids=(8, 4, 2, 1),
@@ -29,6 +30,7 @@ class ResNet(nn.Module):
         kaiming=True,
     ):
         super(ResNet, self).__init__()
+        self.task = task
         self.dims = []
         self.inplanes = 64
         self.efficient = efficient
@@ -169,15 +171,22 @@ class ResNet(nn.Module):
         x = self.maxpool(x)
 
         features = []
+        source = []
         x, skip = self.forward_resblock(x, self.layer1)
         features += [skip]
         x, skip = self.forward_resblock(x, self.layer2)
         features += [skip]
+        if self.task == "detection":
+            source.append(skip) # torch.Size([1, 128, 64, 64])
         x, skip = self.forward_resblock(x, self.layer3)
         features += [skip]
+        if self.task == "detection":
+            source.append(skip) # torch.Size([1, 256, 32, 32])
         x, skip = self.forward_resblock(x, self.layer4)
+        if self.task == "detection":
+            source.append(skip) # torch.Size([1, 512, 16, 16])
         features += [self.spp.forward(skip)]
-        return features
+        return features, source
 
     def forward_down_only(self, image):
         x = self.conv1(image)
@@ -186,15 +195,22 @@ class ResNet(nn.Module):
         x = self.maxpool(x)
 
         features = []
+        source = []
         x, skip = self.forward_resblock(x, self.layer1)
         features += [x]
         x, skip = self.forward_resblock(x, self.layer2)
+        if self.task == "detection":
+            source.append(skip) # torch.Size([1, 128, 64, 64])
         features += [x]
         x, skip = self.forward_resblock(x, self.layer3)
+        if self.task == "detection":
+            source.append(skip) # torch.Size([1, 256, 32, 32])
         features += [x]
         x, skip = self.forward_resblock(x, self.layer4)
+        if self.task == "detection":
+            source.append(skip) # torch.Size([1, 512, 16, 16])
         features += [x]
-        return features, x
+        return features, x, source
 
     def forward_up(self, features):
         features = features[::-1]
@@ -207,7 +223,9 @@ class ResNet(nn.Module):
         return x, {'features': features, 'upsamples': upsamples}
 
     def forward(self, image):
-        return self.forward_up(self.forward_down(image))
+        features, source = self.forward_down(image)
+        seg_out, features = self.forward_up(features)
+        return seg_out, features, source
 
 
 def resnet18(pretrained=True, **kwargs):
