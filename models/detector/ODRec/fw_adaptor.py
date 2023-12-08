@@ -1,6 +1,7 @@
 import torch.nn as nn
 from . ODRec import SSDRec
-from ... encoders.resnet.full_network import resnet18
+# from ... encoders.resnet.full_network import resnet18
+from ... rec_decoders.swiftnet_rec.resnet.full_network import resnet18
 
 def load_state_dict_into_model(model, pretrained_dict):
     #ToDo: This function may throw errors, if you not use the correct value for Freeze_SemSeg
@@ -29,7 +30,7 @@ class ODReconstruction(nn.Module):
         super().__init__()
         use_bn = True
 
-        self.encoder = resnet18(pretrained=True, efficient=False, use_bn=use_bn)
+        self.encoder = resnet18(task="detection", pretrained=True, efficient=False, use_bn=use_bn)
         self.model = SSDRec(rec_decoder, self.encoder, num_classes_wo_bg,
                     decoders_skip_connections=decoders_skip_connections,
                     freeze_complete_backbone=freeze_resnet,

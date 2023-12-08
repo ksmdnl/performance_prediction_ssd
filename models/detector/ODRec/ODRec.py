@@ -4,8 +4,10 @@ from itertools import chain
 
 from ...util import upsample, _BNActConv, L2Norm
 
-from .resnet.basic import BasicDecoder  # New ae-decoder-object from class Basis_Dec (SwiftNet)
+from .resnet.basic import BasicDecoder 
 from ..ssd.detector_head_og import build_ssd_head
+from ...rec_decoders.swiftnet_rec.rec_decoders.swiftnet import SwiftNetDecoder
+from ... util import upsample, _BNActConv
 
 class SSDRec(nn.Module):
 	def __init__(self, rec_decoder,
@@ -40,17 +42,13 @@ class SSDRec(nn.Module):
 		if self.freeze_ssd:
 			# Get SSD detector head
 			self.detector_head = build_ssd_head(512, self.num_classes, False, False)
-			self.rec_decoder = BasicDecoder(use_skips=False if 'noskip' in self.rec_decoder_name else True)
-
-	# Upsamling with the new AE-Decoder
-	def forward_rec_decoder(self,
-		features,
-		image_size,
-		lateral_features=None,
-		decoders_skip_connections_args=None,
-	):
-		return self.rec_decoder(features, lateral_features, decoders_skip_connections_args)
-
+			# self.rec_decoder = BasicDecoder(use_skips=False if 'noskip' in self.rec_decoder_name else True)
+			self.rec_decoder = SwiftNetDecoder(
+				use_skips=False if 'noskip' in self.rec_decoder_name else True,
+				use_spp=False if 'nospp' in self.rec_decoder_name else True,
+				inplanes=self.backbone.dims
+			)
+		
 	def train(self, mode=True):
 		"""
 		Override the default train() to freeze the BN and/or entire backbone parameters
@@ -76,12 +74,12 @@ class SSDRec(nn.Module):
 								m.bias.requires_grad = False
 
 	def forward(self, batch):
-		feats, additional = self.backbone(batch)
-		source = additional['features']
-		detection_output = self.detector_head(source)
+		backbone_out = self.backbone(batch)
+		detection_output = self.detector_head(backbone_out["source"])
 
-		features = additional['features']
-		reconstructed_im = self.forward_rec_decoder(features, batch.shape[2:4])
+		upsamples = backbone_out['semseg']['upsamples']
+		features = [backbone_out['spp_input'], backbone_out['skips_and_spp']]
+		reconstructed_im = self.rec_decoder(features, batch.shape[2:4], upsamples)
 
 		outputs = {'detection_output': detection_output, 'reconstructed_im': reconstructed_im}
 
