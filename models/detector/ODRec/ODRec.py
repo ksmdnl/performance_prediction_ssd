@@ -1,13 +1,10 @@
-import copy
 import torch.nn as nn
 from itertools import chain
 
-from ...util import upsample, _BNActConv, L2Norm
+from ...util import L2Norm
 
-from .resnet.basic import BasicDecoder 
 from ..ssd.detector_head_og import build_ssd_head
 from ...rec_decoders.swiftnet_rec.rec_decoders.swiftnet import SwiftNetDecoder
-from ... util import upsample, _BNActConv
 
 class SSDRec(nn.Module):
 	def __init__(self, rec_decoder,
