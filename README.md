@@ -1,4 +1,5 @@
 # performance_prediction_ssd
+This is an attempt to extend the performance prediction framework to object detection models.
 
 ## Citation
 If you find our code helpful or interesting for your research, please consider citing
