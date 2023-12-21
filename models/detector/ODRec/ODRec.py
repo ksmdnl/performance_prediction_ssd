@@ -31,15 +31,16 @@ class SSDRec(nn.Module):
 		self.ssd_model = ssd_model
 		self.efficient = efficient
 
-		print('\nFreezing the Semantic Segmentation:       ', freeze_complete_backbone)
-		print('Decoder-Architecture for the Autoencoder: ', self.rec_decoder_name)
+		print('\nFreezing the object detector:       ', freeze_complete_backbone)
+		print('Decoder-Architecture for the reconstruction decoder: ', self.rec_decoder_name)
 
 		self.decoders_skip_connections = decoders_skip_connections  # Dictionary of 'arguments' to connect decoders: NOT THE CONNECTION ARRAYS itselves
 
 		if self.freeze_ssd:
 			# Get SSD detector head
 			self.detector_head = build_ssd_head(512, self.num_classes, False, False)
-			# self.rec_decoder = BasicDecoder(use_skips=False if 'noskip' in self.rec_decoder_name else True)
+
+			# Get the reconstruction decoder
 			self.rec_decoder = SwiftNetDecoder(
 				use_skips=False if 'noskip' in self.rec_decoder_name else True,
 				use_spp=False if 'nospp' in self.rec_decoder_name else True,
