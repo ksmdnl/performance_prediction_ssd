@@ -1,6 +1,5 @@
 import torch.nn as nn
 from . ODRec import SSDRec
-# from ... encoders.resnet.full_network import resnet18
 from ... rec_decoders.swiftnet_rec.resnet.full_network import resnet18
 
 def load_state_dict_into_model(model, pretrained_dict):
